@@ -1,0 +1,88 @@
+---
+# - name: preformance tuning section
+#   hosts: db-servers
+#   gather_facts: true
+#   connection: ssh
+#   user: root
+#   tasks:
+#     - include: tasks/perftuning.yml
+ 
+- name: etcd installing section
+  hosts: etcd-servers
+  gather_facts: true
+  connection: ssh
+  user: root
+  vars_files:
+    - vars.yml
+  vars:
+    wrk_user: etcd
+    wrk_group: etcd
+    wrk_dir: /etc/self-cert/etcd
+  tasks:
+    - include: tasks/etcd.yml
+  post_tasks:
+    - name: securing etcd
+      template:
+        src: templates/secure_etcd.j2
+        dest: /secure_etcd.sh
+        mode: 0700
+    - name: "running /secure_etcd.sh to secure etcd"
+      command: /secure_etcd.sh
+
+- name: stopping patroni cluster if already running
+  hosts: db-servers
+  gather_facts: true
+  connection: ssh
+  user: root
+  vars_files:
+    - vars.yml
+  vars:
+    service_type: patroni
+    wrk_dir: /etc/db-cert
+    wrk_user: postgres
+    wrk_group: postgres
+  tasks:
+    - include: tasks/clear_cluster.yml
+
+- name: removing patroni if exists from etcd
+  hosts: etcd-servers
+  gather_facts: true
+  connection: ssh
+  user: root
+  vars_files:
+    - vars.yml
+  vars:
+    service_type: etcd
+    wrk_dir: /etc/db-cert
+  tasks:
+    - include: tasks/clear_cluster.yml
+
+- name: patroni
+  hosts: db-servers
+  gather_facts: true
+  connection: ssh
+  user: root
+  serial: 1
+  vars_files:
+    - vars.yml
+  vars:
+    service_type: patroni
+    wrk_dir: /etc/db-cert
+    wrk_user: postgres
+    wrk_group: postgres
+  tasks:
+    - include: tasks/patroni.yml
+
+- name: Installing and Configuring HAProxy
+  hosts: haproxy-servers
+  gather_facts: true
+  connection: ssh
+  user: root
+  vars_files:
+    - vars.yml
+  vars:
+    wrk_user: haproxy
+    wrk_group: haproxy
+    wrk_dir: /etc/self-cert/haproxy
+  tasks:
+    - include: tasks/haproxy.yml

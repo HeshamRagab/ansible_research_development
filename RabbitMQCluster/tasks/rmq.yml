@@ -1,0 +1,78 @@
+- name: purging rabbitmq-server*
+  command: "apt purge rabbitmq-server* -y"
+  when: "{{ purgeval }} == true"
+#- command: "rm -rf /var/lib/rabbitmq/mnesia/*"
+- name: getting hostnames
+  set_fact:
+    registry_hostnames: "{{ groups['RMQ'] | map('extract', hostvars) | map(attribute='ansible_hostname') | list }}"
+
+- name: generating var to get etcdClusterips
+  set_fact:
+    RMQVAR: "{% for name in registry_hostnames %}cluster_formation.classic_config.nodes.{{ loop.index }} = {{ rabbitCluster }}@{{ name }}\n{% endfor %}"
+
+- name: "Installing required packages for RabbitMQ Cluster"
+  apt:
+    pkg: "{{ item }}"
+    update_cache: yes
+    state: present
+  loop:
+    - rabbitmq-server
+- name: configuring SSL for rabbitMQ
+  include: tasks/sslconfigure.yml
+- name: fetching cookie from first server to all
+  block:
+    - ansible.builtin.fetch:
+        src: /var/lib/rabbitmq/.erlang.cookie
+        dest: files/erlang.cookie
+        flat: yes
+        validate_checksum: false
+    - set_fact:
+        fetchDone: True
+        RMQMaster: "{{ rabbitCluster }}@{{ ansible_hostname }}"
+#- set_fact:
+#        RMQMaster: "rabbit@{{ ansible_hostname }}"
+#  when: 'RMQMaster == "none"'
+- name: copying files/erlang.cookie other servers
+  copy:
+    src: files/erlang.cookie
+    dest: /var/lib/rabbitmq/.erlang.cookie
+    owner: rabbitmq
+    group: rabbitmq
+    mode: 0400
+#- name: deleting files/erlang.cookie other servers
+#  file:
+#    path: /var/lib/rabbitmq/.erlang.cookie
+#    state: absent
+- ansible.builtin.lineinfile:
+    path: /etc/rabbitmq/rabbitmq-env.conf
+    line: "NODENAME={{ rabbitCluster }}@{{ ansible_hostname }}"
+    state: present
+- name: copy config template to server
+  template:
+    src: templates/RMQConf.j2
+    dest: "{{ RMQPath }}"
+    owner: rabbitmq
+    group: rabbitmq
+    mode: 0744
+
+- ansible.builtin.lineinfile:
+    path: /etc/rabbitmq/rabbitmq-env.conf
+    line: "RABBITMQ_CONFIG_FILE"
+    state: absent
+- ansible.builtin.lineinfile:
+    path: /etc/rabbitmq/rabbitmq-env.conf
+    line: "RABBITMQ_CONFIG_FILE={{ RMQPath }}"
+    state: present
+- ansible.builtin.lineinfile:
+    path: /etc/rabbitmq/rabbitmq-env.conf
+    line: "RABBITMQ_DEFAULT_USER={{ RMQUser }}"
+    state: absent
+- ansible.builtin.lineinfile:
+    path: /etc/rabbitmq/rabbitmq-env.conf
+    line: "RABBITMQ_DEFAULT_PASS={{ RMQPass }}"
+    state: absent
+
+- ansible.builtin.lineinfile:
+    path: /etc/rabbitmq/rabbitmq-env.conf
+    line: "RABBITMQ_ERLANG_COOKIE=SMISETRUYTRZTNRCCWRX"
+    state: absent

@@ -1,0 +1,26 @@
+#!/bin/bash
+
+#!/bin/bash
+pdin="$(head -n 1 /var/lib/postgresql/12/main/postmaster.pid)"
+x=$(grep -i vmpeak /proc/${pdin}/status | cut -d' ' -f3)
+y=$(grep -i hugepagesize /proc/meminfo | cut -d' ' -f8)
+echo "$x $y"
+hpagesize="$((x / y + 10))"
+
+memsize=$(( 16 - 2 ))
+shmallval="$((( memsize * 1024 * 1024 * 1024 ) / 4096))"
+
+# Create sysctl config file:
+echo "
+vm.swappiness = 10
+vm.dirty_expire_centisecs = 500
+vm.dirty_writeback_centisecs = 250
+vm.dirty_ratio = 10
+vm.dirty_background_ratio = 3
+vm.overcommit_memory=0
+net.ipv4.tcp_timestamps=0
+vm.nr_hugepages=${hpagesize}
+kernel.shmall = ${shmallval}
+
+" > /etc/sysctl.d/40-edbpostgres.conf
+sysctl --system

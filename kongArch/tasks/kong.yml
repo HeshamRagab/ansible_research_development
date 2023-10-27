@@ -1,0 +1,18 @@
+- name: configuring SSL for kong
+  include: tasks/sslconfigure.yml
+
+- file:
+    path: "{{ kongpath }}"
+    state: directory
+- name: "copy docker-compose kong to server"
+  template:
+     src: templates/docker-compose.j2
+     dest: "{{ kongpath }}/docker-compose.yml"
+
+- command: "docker-compose down"
+  args:
+    chdir: "{{ kongpath }}"
+
+- command: "docker-compose up -d"
+  args:
+    chdir: "{{ kongpath }}"

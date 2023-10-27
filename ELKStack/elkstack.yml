@@ -1,0 +1,44 @@
+---
+- name: elasticsearch installing section
+  hosts: esearsh
+  gather_facts: true
+  connection: ssh
+  user: root
+  vars_files:
+    - vars.yml
+  vars:
+    wrk_dir: /etc/elasticsearch
+    wrk_user: elasticsearch
+    wrk_group: elasticsearch
+  tasks:
+    - include: tasks/elasticsearch.yml
+
+# - name: logstash installing section
+#   hosts: logstash
+#   gather_facts: true
+#   connection: ssh
+#   user: root
+#   vars_files:
+#     - vars.yml
+#   vars:
+#     wrk_dir: /etc/elasticsearch
+#     wrk_user: elasticsearch
+#     wrk_group: elasticsearch
+#   tasks:
+#     - include: tasks/logstash.yml
+    
+#       when: 'inslog == true'
+
+- name: kibana installing section
+  hosts: kibana
+  gather_facts: true
+  connection: ssh
+  user: root
+  vars_files:
+    - vars.yml
+  vars:
+    wrk_dir: /etc/kibana
+    wrk_user: kibana
+    wrk_group: kibana
+  tasks:
+    - include: tasks/kibana.yml

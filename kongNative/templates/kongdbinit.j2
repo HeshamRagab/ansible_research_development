@@ -1,0 +1,19 @@
+set password_encryption='md5';
+do
+$$
+begin
+  if not exists (select * from pg_user where usename = 'kong') then
+     CREATE USER kong WITH password '{{ kongpassword }}';
+  end if;
+  if not exists (SELECT * FROM pg_database WHERE datname='kong') then
+     CREATE DATABASE kong OWNER kong;
+  end if;
+  if not exists (select * from pg_user where usename = 'konga') then
+     CREATE USER konga WITH password '{{ kongapassword }}';
+  end if;
+  if not exists (SELECT * FROM pg_database WHERE datname='konga') then
+     CREATE DATABASE konga OWNER konga;
+  end if;
+end
+$$
+;

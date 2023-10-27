@@ -1,0 +1,12 @@
+#!/bin/bash
+
+set -e
+cd /var/lib/postgresql/
+sudo -u postgres psql < ./kongdbinit.sql
+
+sudo docker run --rm \
+--mount type=bind,source={{ kongpath }}/adapter.js,target=/app/node_modules/sails-postgresql/lib/adapter.js \
+--mount type=bind,source={{ kongpath }}/connections.js,target=/app/config/connections.js \
+pantsel/konga:latest -c prepare \
+-a postgres \
+-u postgres://konga:{{ kongapassword }}@172.17.0.1:5432/konga

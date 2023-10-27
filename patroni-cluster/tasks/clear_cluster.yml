@@ -1,0 +1,6 @@
+- name: "preTask of {{ service_type }}"
+  template: 
+   src: templates/clear_cluster.j2
+   dest: /clear_cluster.sh
+   mode: 0700
+- command: "/clear_cluster.sh {{ service_type }}"

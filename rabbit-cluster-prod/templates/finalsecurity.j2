@@ -1,0 +1,11 @@
+#!/bin/bash
+check_user_exist () {
+    rabbitmqctl list_users | grep -q "^${1} "
+    return "$?"
+}
+ret=$(check_user_exist {{ RMQUser }})
+if [[ $ret != "0" ]]; then 
+sudo rabbitmqctl add_user {{ RMQUser }} {{ RMQPass }} 2> /dev/null
+sudo rabbitmqctl set_user_tags {{ RMQUser }} administrator 2> /dev/null
+
+fi

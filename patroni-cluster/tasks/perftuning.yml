@@ -1,0 +1,17 @@
+- name: preformance tuning for postgresql
+  template:
+    src: templates/tuning.j2
+    dest: /tuningpsql.sh
+    mode: 0700
+- command: /tuningpsql.sh
+- package:
+    name: sysfsutils
+- lineinfile:
+    path: /etc/sysfs.conf
+    line: kernel/mm/transparent_hugepage/enabled = never
+- name: systemctl restart/enable sysfsutils
+  systemd:
+    daemon_reload: yes
+    name: sysfsutils
+    state: restarted
+    enabled: yes

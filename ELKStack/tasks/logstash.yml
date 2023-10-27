@@ -1,0 +1,72 @@
+
+- name: calculating the recommended number of masters to elasticsearch cluster
+  set_fact:
+    nomasters: "{{ ((groups['esearsh'] | length ) / 2 + 1) | int }}"
+- name: generating var to get registry_ips
+  set_fact:
+    registry_ips: "{{ groups['esearsh'] | list }}"
+- name: generating var to hold hostnames of registry
+  set_fact:
+    registry_hostnames: "{{ groups['esearsh'] | map('extract', hostvars) | map(attribute='ansible_hostname') | list }}"
+- name: debugging var
+  ansible.builtin.debug:
+    msg: "var = {{ nomasters }}"
+
+- name: Update the /etc/hosts file with node name
+  lineinfile:
+    path: "/etc/hosts"
+    regexp: ".*\t{{ hostvars[item]['ansible_hostname']}}\t{{ hostvars[item]['ansible_hostname']}}"
+    line: "{{ hostvars[item]['ansible_env'].SSH_CONNECTION.split(' ')[2] }}\t{{ hostvars[item]['ansible_hostname']}}\t{{ hostvars[item]['ansible_hostname']}}"
+    state: present
+    backup: yes
+
+  when: ansible_hostname != "{{ item }}" or ansible_hostname == "{{ item }}"
+  with_items: "{{groups['esearsh']}}"
+- name: Installing apt-transport-https
+  block:
+    - name: Installing apt-transport-https
+      apt:
+        pkg: apt-transport-https
+        update_cache: yes
+        state: present
+ 
+
+- name: adding key and repo of Elastic Search
+  block:
+    - name: Elastic Search apt key
+      ansible.builtin.apt_key:
+        url: https://artifacts.elastic.co/GPG-KEY-elasticsearch
+
+    - name: Installing apt-transport-https
+      apt:
+        pkg: apt-transport-https
+        update_cache: yes
+        state: present
+    - name: Elastic Search apt source
+      ansible.builtin.apt_repository:
+        repo: "deb https://artifacts.elastic.co/packages/8.x/apt stable main"
+        state: present
+
+- name: Installing required packages for logstash
+  apt:
+    pkg: "{{ item }}"
+    update_cache: yes
+    state: present
+  loop:
+    - openjdk-11-jdk
+    - logstash
+
+- name: configuring logstash block
+  block:
+    - debug:
+        msg: "test"
+
+
+
+- name: systemctl start/enable logstash
+  systemd:
+    daemon_reload: yes
+    name: logstash
+    state: started
+    enabled: yes
+    masked: no

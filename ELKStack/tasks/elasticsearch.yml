@@ -1,0 +1,283 @@
+- name: configuring SSL for elasticsearch
+  include: tasks/sslconfigure.yml
+# - name: fetching ssl for using on other stack tools
+#   fetch:
+#     src: "{{ wrk_dir }}/{{ item }}"
+#     dest: files/certs/{{ item }}
+#     flat: yes
+#     #validate_checksum: false
+#   loop:
+#     - "ca.pem"
+#     - "cert.pem"
+#     - "cert-key.pem"
+    
+- name: calculating the recommended number of masters to elasticsearch cluster
+  set_fact:
+    nomasters: "{{ ((groups['esearsh'] | length )) | int }}" # / 2 + 1
+- name: generating var to get registry_ips
+  set_fact:
+    registry_ips: "{{ groups['esearsh'] | list }}"
+- name: generating var to hold hostnames of registry
+  set_fact:
+    registry_hostnames: "{{ groups['esearsh'] | map('extract', hostvars) | map(attribute='ansible_hostname') | list }}"
+- name: number of masters
+  ansible.builtin.debug:
+    msg: "var = {{ nomasters }}"
+
+- name: Update the /etc/hosts file with node name
+  lineinfile:
+    path: "/etc/hosts"
+    regexp: ".(.*)\t{{ hostvars[item]['ansible_hostname']}}\t{{ hostvars[item]['ansible_hostname']}}"
+    line: "{{ hostvars[item]['ansible_env'].SSH_CONNECTION.split(' ')[2] }}\t{{ hostvars[item]['ansible_hostname']}}\t{{ hostvars[item]['ansible_hostname']}}"
+    state: present
+    backup: yes
+
+  when: ansible_hostname != "{{ item }}" or ansible_hostname == "{{ item }}"
+  with_items: "{{groups['esearsh']}}"
+
+- name: adding key and repo of Elastic Search
+  block:
+    - name: Elastic Search apt key
+      ansible.builtin.apt_key:
+        url: https://artifacts.elastic.co/GPG-KEY-elasticsearch
+
+    - name: Installing apt-transport-https
+      apt:
+        pkg: apt-transport-https
+        update_cache: yes
+        state: present
+   
+    - name: Elastic Search apt source
+      ansible.builtin.apt_repository:
+        repo: "deb https://artifacts.elastic.co/packages/8.x/apt stable main"
+        state: present
+- name: purge elasticsearch
+  command: "apt purge elasticsearch* -y"
+  when: 'purgeval == true'
+- name: "Installing required packages for Elastic Search"
+  apt:
+    pkg: "{{ item }}"
+    update_cache: yes
+    state: present
+  loop:
+    - ncdu
+    - net-tools
+    - openjdk-11-jdk
+    - elasticsearch
+- name: configuring elasticsearch block
+  block:
+    - name: rm -rf elasticsearch
+      file:
+        path: "/var/lib/elasticsearch/"
+        state: absent
+    - name: mkdir elasticsearch
+      file:
+        path: "/var/lib/elasticsearch/"
+        state: directory
+        owner: elasticsearch
+        group: elasticsearch
+
+    - name: deleting 1
+      ansible.builtin.lineinfile:
+        path: /etc/elasticsearch/elasticsearch.yml
+        regexp: "^(.*)xpack.security.transport.ssl:(.*)$"
+        state: absent
+    - name: deleting 2
+      ansible.builtin.lineinfile:
+        path: /etc/elasticsearch/elasticsearch.yml
+        regexp: "^(.*)enabled: true(.*)$"
+        state: absent
+    - name: deleting 3
+      ansible.builtin.lineinfile:
+        path: /etc/elasticsearch/elasticsearch.yml
+        regexp: "^(.*)verification_mode: certificate(.*)$"
+        state: absent
+    - name: deleting 4
+      ansible.builtin.lineinfile:
+        path: /etc/elasticsearch/elasticsearch.yml
+        regexp: "^(.*)keystore.path:(.*)$"
+        state: absent
+    - name: deleting 5
+      ansible.builtin.lineinfile:
+        path: /etc/elasticsearch/elasticsearch.yml
+        regexp: "^(.*)truststore.path:(.*)$"
+        state: absent
+    - name: deleting 6
+      ansible.builtin.lineinfile:
+        path: /etc/elasticsearch/elasticsearch.yml
+        regexp: "^(.*)xpack.security.http.ssl:(.*)$"
+        state: absent
+
+    - name: deleting 7
+      ansible.builtin.lineinfile:
+        path: /etc/elasticsearch/elasticsearch.yml
+        regexp: "^(.*)cluster.initial_master_nodes:(.*)$"
+        state: absent
+    - name: set cluster name
+      ansible.builtin.lineinfile:
+        path: /etc/elasticsearch/elasticsearch.yml
+        line: "cluster.name: {{ clustername }}"
+        state: present
+
+    - name: "sysctl -w vm.max_map_count=262144"
+      command: "sysctl -w vm.max_map_count=262144"
+
+
+    - name: set MAX_LOCKED_MEMORY
+      ansible.builtin.lineinfile:
+        path: /etc/default/elasticsearch
+        line: "MAX_LOCKED_MEMORY=unlimited"
+        state: present
+
+    - name: set nofile 65536
+      ansible.builtin.lineinfile:
+        path: /etc/security/limits.conf
+        regexp: "^- nofile"
+        line: "- nofile 65536"
+
+    - name: set -Xms option
+      ansible.builtin.lineinfile:
+        path: /etc/elasticsearch/jvm.options
+        regexp: "^-Xms"
+        line: "-Xms{{heapsize}}g"
+    
+    - name: set -Xmx option
+      ansible.builtin.lineinfile:
+        path: /etc/elasticsearch/jvm.options
+        regexp: "^-Xmx"
+        line: "-Xmx{{heapsize}}g"
+        
+    - name: set node.name
+      ansible.builtin.lineinfile:
+        path: /etc/elasticsearch/elasticsearch.yml
+        line: "node.name: {{ ansible_hostname }}"
+        state: present
+
+
+    - name: set network.host
+      ansible.builtin.lineinfile:
+        path: /etc/elasticsearch/elasticsearch.yml
+        line: "network.host: 0.0.0.0"
+        state: present
+
+    - name: set http.host
+      ansible.builtin.lineinfile:
+        path: /etc/elasticsearch/elasticsearch.yml
+        line: "http.host: 0.0.0.0"
+        state: present
+
+    - name: set http.port
+      ansible.builtin.lineinfile:
+        path: /etc/elasticsearch/elasticsearch.yml
+        line: "http.port: {{ esport }}"
+        state: present
+
+    - name: set xpack.security.enabled
+      ansible.builtin.lineinfile:
+        path: /etc/elasticsearch/elasticsearch.yml
+        line: "xpack.security.transport.ssl.enabled: true"
+        state: present
+
+
+    #NOTE: Transport enabling
+    - name: set xpack.security.transport.ssl.key
+      ansible.builtin.lineinfile:
+        path: /etc/elasticsearch/elasticsearch.yml
+        line: "xpack.security.transport.ssl.key: cert-key.pem"
+        state: present
+
+    - name: set xpack.security.transport.ssl.certificate
+      ansible.builtin.lineinfile:
+        path: /etc/elasticsearch/elasticsearch.yml
+        line: "xpack.security.transport.ssl.certificate: cert.pem"
+        state: present
+
+
+    - name: set xpack.security.transport.ssl.certificate_authorities
+      ansible.builtin.lineinfile:
+        path: /etc/elasticsearch/elasticsearch.yml
+        line: 'xpack.security.transport.ssl.certificate_authorities: [ "ca.pem" ]'
+        state: present
+
+    #NOTE: HTTPS enabling
+    - name: set xpack.security.http.ssl.enabled
+      ansible.builtin.lineinfile:
+        path: /etc/elasticsearch/elasticsearch.yml
+        line: "xpack.security.http.ssl.enabled: true"
+        state: present
+
+    - name: set xpack.security.http.ssl.key
+      ansible.builtin.lineinfile:
+        path: /etc/elasticsearch/elasticsearch.yml
+        line: "xpack.security.http.ssl.key: cert-key.pem"
+        state: present
+
+    - name: set xpack.security.http.ssl.certificate
+      ansible.builtin.lineinfile:
+        path: /etc/elasticsearch/elasticsearch.yml
+        line: "xpack.security.http.ssl.certificate: cert.pem"
+        state: present
+
+  
+    - name: set xpack.security.http.ssl.certificate_authorities
+      ansible.builtin.lineinfile:
+        path: /etc/elasticsearch/elasticsearch.yml
+        line: 'xpack.security.http.ssl.certificate_authorities: [ "ca.pem" ]'
+        state: present
+
+    - name: set discovery.seed_hosts
+      ansible.builtin.lineinfile:
+        path: /etc/elasticsearch/elasticsearch.yml
+        line: 'discovery.seed_hosts: [{% for ip in registry_hostnames %}{% if loop.index <= (nomasters|int) %}"{{ ip }}"{% if loop.index < (nomasters|int) %}, {% endif %}{% endif %}{% endfor %}]'
+        state: present
+
+    - name: set cluster.initial_master_nodes
+      ansible.builtin.lineinfile:
+        path: /etc/elasticsearch/elasticsearch.yml
+        line: 'cluster.initial_master_nodes: [{% for ip in registry_hostnames %}{% if loop.index <= (nomasters|int) %}"{{ ip }}"{% if loop.index < (nomasters|int) %}, {% endif %}{% endif %}{% endfor %}]'
+        state: present
+
+    #- ansible.builtin.lineinfile:
+    #    path: /etc/elasticsearch/elasticsearch.yml
+    #    regexp: "^xpack.security.enabled:"
+    #    line: "xpack.security.enabled: false"
+- name: change the onwer and group of /etc/elasticsearch/elasticsearch.yml
+  file:
+    path: /etc/elasticsearch/{{ item }}
+    owner: root
+    group: elasticsearch
+    mode: 0660
+  loop:
+    - "ca.pem"
+    - "cert.pem"
+    - "cert-key.pem"
+    - "elasticsearch.yml"
+    - "elasticsearch.keystore"
+- name: change the onwer and group of /etc/elasticsearch/certs
+  file:
+    path: /etc/elasticsearch/certs
+    owner: root
+    group: elasticsearch
+    recurse: true
+    mode: 0770
+
+- name: systemctl start/enable elasticsearch
+  systemd:
+    daemon_reload: yes
+    name: elasticsearch
+    state: restarted
+    enabled: yes
+    masked: no
+
+- name: moving template of changing password of [elastic] username
+  template:
+    src: templates/changepasses.j2
+    dest: /passwordelastic.sh
+    owner: root
+    group: root
+    mode: 0700
+- name: changing the password of [elastic] username
+  command: /passwordelastic.sh
+
+    #TODO: tuning for storage and CPUs
+    #TODO: make it lightweight as possible

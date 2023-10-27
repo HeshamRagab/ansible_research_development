@@ -1,0 +1,15 @@
+default_user                             = {{ RMQUser }}
+default_pass                             = {{ RMQPass }}
+listeners.ssl.default                    = 5673
+listeners.tcp                            = none
+ssl_options.cacertfile                   = {{ wrk_dir }}/ca.pem
+ssl_options.certfile                     = {{ wrk_dir }}/cert.pem
+ssl_options.keyfile                      = {{ wrk_dir }}/cert-key.pem
+ssl_options.verify                       = verify_peer
+ssl_options.fail_if_no_peer_cert         = true
+management.ssl.port                      = 15672
+management.ssl.cacertfile                = {{ wrk_dir }}/ca.pem
+management.ssl.certfile                  = {{ wrk_dir }}/cert.pem
+management.ssl.keyfile                   = {{ wrk_dir }}/cert-key.pem
+cluster_formation.peer_discovery_backend = rabbit_peer_discovery_classic_config
+{{ RMQVAR }}

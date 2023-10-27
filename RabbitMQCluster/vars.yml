@@ -1,0 +1,4 @@
+- purgeval: true
+- RMQPath: /etc/rabbitmq/rabbitmq.conf
+- RMQUser: admin
+- RMQPass: dummyPassword

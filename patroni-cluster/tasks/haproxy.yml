@@ -1,0 +1,62 @@
+#- name: Installing and Configuring HAProxy
+- name: get and set some facts for HAProxy cluster
+  set_fact:
+    registry_ips: "{{ groups['db-servers'] | list }}"
+
+- set_fact:
+    db_servers: "{% for ip in registry_ips %}    server {{ ip }} {{ ip }}:5432 check\n{% endfor %}"
+
+- name: Installing HAProxy
+  apt:
+    pkg: haproxy
+    update_cache: yes
+    state: present
+
+- name: systemctl stop/enable HAProxy
+  systemd:
+    daemon_reload: yes
+    name: haproxy
+    state: stopped
+    enabled: yes
+
+- template:
+    src: templates/replicachecker.j2
+    dest: /var/lib/haproxy/replicachecker
+    owner: haproxy
+    group: haproxy
+- template:
+    src: templates/masterhecker.j2
+    dest: /var/lib/haproxy/masterchecker
+    owner: haproxy
+    group: haproxy
+- name: configuring SSL for HAProxy
+  include: tasks/sslconfigure.yml
+
+- name: moving bash script to make fullchain.pem for haproxy
+  template:
+    src: templates/makefullchain.j2
+    dest: "{{ wrk_dir }}/makefullchain.sh"
+    mode: 0700
+
+- command: "{{ wrk_dir }}/makefullchain.sh"
+
+- file:
+   path: /var/lib/haproxy
+   owner: haproxy
+   group: haproxy
+   state: directory
+   recurse: yes
+   mode: 0700
+- template:
+    src: templates/haproxy.j2
+    dest: /etc/haproxy/haproxy.cfg
+    owner: haproxy
+    group: haproxy
+    mode: 0600 
+
+- name: systemctl stop/enable HAProxy
+  systemd:
+    daemon_reload: yes
+    name: haproxy
+    state: started
+    enabled: yes

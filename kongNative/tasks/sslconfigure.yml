@@ -1,0 +1,37 @@
+- name: generating and confiuring SSL
+  file:
+      path: "{{ wrk_dir }}"
+      state: directory
+      
+- name: "copying files/gen_self_cert.sh script to {{ wrk_dir }}"
+  copy:
+      src: files/gen_self_cert.sh
+      dest: "{{ wrk_dir }}/gen_self_cert.sh"
+      mode: 0777
+
+- name: "copying files/ca.pem to {{ wrk_dir }}"
+  copy:
+      src: files/ca.pem
+      dest: "{{ wrk_dir }}/ca.pem"
+      mode: 0777
+
+- name: "copying files/extfile.cnf to {{ wrk_dir }}"
+  copy:
+      src: files/extfile.cnf
+      dest: "{{ wrk_dir }}/extfile.cnf"
+      mode: 0777
+
+- name: "copying files/ca-key.pem to {{ wrk_dir }}"
+  copy:
+      src: files/ca-key.pem
+      dest: "{{ wrk_dir }}/ca-key.pem"
+      mode: 0777
+
+- name: "copying and rendering templates/dosslwork.j2 script to {{ wrk_dir }}"
+  template:
+      src: templates/dosslwork.j2
+      dest: "{{ wrk_dir }}/dowork.sh"
+      mode: 0777
+
+- name: "running {{ wrk_dir }}/dowork.sh script"
+  command: "{{ wrk_dir }}/dowork.sh"

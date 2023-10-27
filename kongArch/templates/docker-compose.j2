@@ -1,0 +1,83 @@
+version: '2.1'
+
+networks:
+  kong-net:
+  
+services:
+
+  #######################################
+  # Kong database migration
+  #######################################
+  kong-migrations:
+    image: kong:latest
+    command: ["kong", "migrations", "bootstrap", "&&", "kong", "migrations", "up", "&&", "kong", "migrations", "finish"]
+
+    environment:
+      - KONG_DATABASE=postgres
+      - KONG_PG_HOST=172.17.0.1
+      - KONG_PG_USER=kong
+      - KONG_PG_PASSWORD={{ kongpassword }}
+      - KONG_PG_DATABASE=kong
+    networks:
+      - kong-net
+    restart: on-failure
+
+  #######################################
+  # Kong: The API Gateway
+  #######################################
+  kong:
+    image: kong:latest
+    container_name: kong-api
+
+    environment:
+      - KONG_DATABASE=postgres
+      - KONG_PG_HOST=172.17.0.1
+      - KONG_PG_USER=kong
+      - KONG_PG_PASSWORD={{ kongpassword }}
+      - KONG_PG_DATABASE=kong
+      - KONG_PASSWORD={{KONGADMIN_PASSWORD}}
+      - KONG_ADMIN_LISTEN=0.0.0.0:8001 ssl
+      - KONG_HEADERS=off
+      - KONG_SSL_CERT={{ kongpath }}/cert.pem
+      - KONG_SSL_CERT_KEY={{ kongpath }}/cert-key.pem
+    volumes:
+      - /var/lib/postgresql/:/var/lib/postgresql/
+      - {{ kongpath }}:{{ kongpath }}
+    networks:
+      - kong-net
+    ports:
+      - "81:8000"
+      - "443:8443"
+      - "8002:8001"
+    depends_on:
+      - kong-migrations
+    healthcheck:
+      test: ["CMD", "kong", "health"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+    restart: on-failure
+
+  konga:
+    image: pantsel/konga
+    ports:
+      - 1337:1337
+    links:
+      - kong:kong
+    container_name: konga
+    environment:
+      - NODE_ENV=production
+      - TOKEN_SECRET={{ KONGATOKEN }}
+      - DB_ADAPTER=postgres
+      - DB_HOST=172.17.0.1
+      - DB_PORT=5432
+      - DB_USER=konga
+      - DB_PASSWORD={{ kongapassword }}
+      - DB_DATABASE=konga
+      - SSL_CRT_PATH={{ kongpath }}/cert.pem
+      - SSL_KEY_PATH={{ kongpath }}/cert-key.pem
+      - NODE_TLS_REJECT_UNAUTHORIZED=0
+    volumes:
+      - {{ kongpath }}/adapter.js:/app/node_modules/sails-postgresql/lib/adapter.js
+      - {{ kongpath }}/connections.js:/app/config/connections.js
+      - {{ kongpath }}:{{ kongpath }}

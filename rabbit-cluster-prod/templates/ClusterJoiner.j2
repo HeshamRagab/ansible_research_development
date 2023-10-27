@@ -1,0 +1,16 @@
+#!/bin/bash
+set -e
+#NOTE: the command above should be the first on script to allow config files works
+sudo rabbitmq-plugins enable rabbitmq_management 2> /dev/null
+
+systemctl start rabbitmq-server
+sudo rabbitmqctl stop_app
+sudo rabbitmqctl force_reset
+sudo rabbitmqctl start_app
+
+#Create a policy that allows for queues mirroring to all nodes in the cluster
+ 
+
+#enable and configure web ui
+
+sudo rabbitmqctl set_policy ha-all "." '{"ha-mode":"all"}' 2> /dev/null

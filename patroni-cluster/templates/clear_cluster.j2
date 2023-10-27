@@ -1,0 +1,10 @@
+#!/bin/bash
+if [[ "$1" == "etcd" ]];
+then
+etcdctl --endpoints=https://{{ ansible_host }}:2379 --ca-file={{ wrk_dir }}/ca.pem -u {{ etcdUser }}:{{ etcdPassword }} rm /{{ patroni_ns }} --recursive 2> /dev/null
+elif [[ "$1" == "patroni" ]]; 
+then
+systemctl stop postgresql 2> /dev/null
+systemctl stop patroni 2> /dev/null
+fi
+exit 0

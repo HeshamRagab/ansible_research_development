@@ -1,0 +1,41 @@
+---
+- name: RabbitMQ hosts init
+  hosts: RMQ
+  gather_facts: true
+  connection: ssh
+  user: root
+  
+  tasks:
+    - include: tasks/reinit.yml
+
+- name: RabbitMQ Installing/Configuring section
+  hosts: RMQ
+  gather_facts: true
+  connection: ssh
+  user: root
+  vars_files:
+    - vars.yml
+  vars:
+    wrk_dir: /etc/rabbitmq/certs
+    wrk_user: rabbitmq
+    wrk_group: rabbitmq
+    fetchDone: False
+    RMQMaster: "rabbitCluster"
+    rabbitCluster: "rabbitCluster"
+  tasks:
+    - include: tasks/rmq.yml
+
+- name: RabbitMQ restarting section
+  hosts: RMQ
+  gather_facts: true
+  connection: ssh
+  user: root
+  vars_files:
+    - vars.yml
+  vars:
+    RMQMaster: "rabbitCluster"
+    rabbitCluster: "rabbitCluster"
+  serial: 1
+  tasks:
+    - include: tasks/restartRMQ.yml
+

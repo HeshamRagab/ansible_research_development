@@ -1,0 +1,38 @@
+global
+        maxconn 5000
+        user haproxy
+        group haproxy
+        external-check
+        tune.ssl.default-dh-param 2048
+
+defaults
+        log     global
+        mode    tcp
+	retries 2
+        timeout server 86400000
+        timeout connect 86400000
+        timeout client 86400000
+        timeout queue 1000s
+
+listen stats
+    mode http
+    bind *:{{ HAStatsPort }} ssl crt {{ wrk_dir }}/fullchain.pem
+    stats enable
+    stats uri /
+
+listen primary
+    mode tcp
+    bind *:{{ HAPrimaryPort }}
+    option external-check
+    external-check command /var/lib/haproxy/masterchecker
+    default-server inter 3s fall 3 rise 2 on-marked-down shutdown-sessions
+{{ db_servers }}
+
+listen standbys
+    mode tcp
+    balance roundrobin
+    bind *:{{ HAReplicaPort }}
+    option external-check
+    external-check command /var/lib/haproxy/replicachecker
+    default-server inter 3s fall 3 rise 2 on-marked-down shutdown-sessions
+{{ db_servers }}

@@ -1,0 +1,7 @@
+#!/bin/bash
+
+echo "" > {{ wrk_dir }}/fullchain.pem
+cat {{ wrk_dir }}/cert.pem >> {{ wrk_dir }}/fullchain.pem
+cat {{ wrk_dir }}/cert-key.pem >> {{ wrk_dir }}/fullchain.pem
+chown {{ wrk_user }}:{{ wrk_group }} {{ wrk_dir }}/fullchain.pem
+chmod 0700 {{ wrk_dir }}/fullchain.pem

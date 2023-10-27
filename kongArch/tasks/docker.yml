@@ -1,0 +1,9 @@
+- name: Installing required packages for docker
+  apt:
+    pkg: "{{ item }}"
+    update_cache: yes
+    state: present
+  loop:
+    - docker
+    - docker.io
+    - docker-compose

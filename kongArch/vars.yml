@@ -1,0 +1,5 @@
+- kongpassword: dummyPassword
+- KONGADMIN_PASSWORD: dummyPassword
+- kongpath: /home/ubuntu/kong-docker
+- kongapassword: dummyPassword
+- KONGATOKEN: dummyToken

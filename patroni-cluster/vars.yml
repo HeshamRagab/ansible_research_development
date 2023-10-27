@@ -1,0 +1,13 @@
+- etcdPassword: dummyPassword
+- etcdUser: root
+- patroni_ns: patroni-cluster
+- patroni_scope: psql
+- psql_admin_pass: dummyPassword
+- psql_replicator_user: replicator
+- psql_replicator_pass: dummyPassword
+- psql_postgres_pass: dummyPassword
+- HAPrimaryPort: 5000
+- HAReplicaPort: 5001
+- HAStatsPort: 7000
+- psqlDataDir: "/var/lib/postgresql/11/main"
+- DBVersion: 11

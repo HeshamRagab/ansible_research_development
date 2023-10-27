@@ -1,0 +1,105 @@
+- name: configuring SSL for postgres and patroni
+  include: tasks/sslconfigure.yml
+
+- name: generating var to get registry_ips
+  set_fact:
+    registry_ips: "{{ groups['etcd-servers'] | list }}"
+
+- name: generating var to get etcdClusterips
+  set_fact:
+    etcdClusterips: "{% for ip in registry_ips %}{{ ip }}:2379{% if not loop.last %},{% endif %}{% endfor %}"
+
+- name: Installing required packages for patroni
+  apt:
+    pkg: "{{ item }}"
+    update_cache: yes
+    state: present
+  loop:
+    - wget
+    - gnupg2
+    - lsb-release
+    - curl
+- name: Install percona-release_latest
+  apt:
+    deb: https://repo.percona.com/apt/percona-release_latest.generic_all.deb
+
+- name: Running "percona-release setup ppg-11" command
+  command: "percona-release setup ppg-11"
+- name: Installing postgresql
+  apt:
+    pkg: "{{ item }}"
+    update_cache: yes
+    state: present
+  loop:
+    - "percona-postgresql-{{ DBVersion }}"
+    - percona-postgresql-client-11
+    - percona-postgresql-client
+    - percona-patroni
+
+- name: systemctl stop postgresql/patroni
+  systemd:
+    daemon_reload: yes
+    name: "{{ item }}"
+    state: stopped
+    enabled: yes
+  loop:
+    - postgresql
+    - patroni
+
+- name: configuring patroni
+  template:
+    src: templates/patroni.j2
+    dest: /etc/patroni/{{ item }}
+  loop:
+    - patroni.yml
+    - config.yml
+
+- name: reinit directory /var/lib/postgresql/11
+  file: 
+    state: "{{ item }}"
+    path: /var/lib/postgresql/11
+    owner: postgres
+    group: postgres
+  loop:
+    - absent
+    - directory
+
+#add allowed hosts to connect lines
+#/etc/postgresql/11/main/pg_hba.conf
+- ansible.builtin.lineinfile:
+    path: /etc/postgresql/{{ DBVersion }}/main/pg_hba.conf
+    line: 'hostssl replication replicator 192.168.1.0/24    md5'
+    state: present
+
+- ansible.builtin.lineinfile:
+    path: /etc/postgresql/{{ DBVersion }}/main/pg_hba.conf
+    line: 'hostssl all all 192.168.1.0/24    md5'
+    state: present
+
+- ansible.builtin.lineinfile:
+    path: /etc/postgresql/{{ DBVersion }}/main/pg_hba.conf
+    line: 'hostssl all all ::0/0    md5'
+    state: present
+
+- ansible.builtin.lineinfile:
+    path: /etc/postgresql/{{ DBVersion }}/main/pg_hba.conf
+    line: 'local   all  postgres      trust'
+    state: present
+
+- ansible.builtin.lineinfile:
+    path: /etc/postgresql/{{ DBVersion }}/main/pg_hba.conf
+    line: 'host    all  all  127.0.0.1/32   trust'
+    state: present
+
+- name: systemctl stop postgresql/patroni
+  systemd:
+    daemon_reload: yes
+    name: "{{ item }}"
+    state: started
+    enabled: yes
+  loop:
+    - postgresql
+    - patroni
+- name: pause 15 seconds before running on others
+  pause:
+    seconds: 15

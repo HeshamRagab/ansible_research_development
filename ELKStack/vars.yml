@@ -1,0 +1,14 @@
+- clustername: InfraSearch
+
+#elasticsearch listening port
+- esport: 9200
+#NOTE: heap size should be half of RAM
+- heapsize: 8
+#NOTE:
+#username: elastic
+#password: elasticpassword var value
+- elasticpassword: "DummyPassword"
+#password of kibana user that will connect to elasticsearch
+- kibanapassword: "DummyPassword"
+- purgeval: false
+- inslog: false

@@ -1,0 +1,8 @@
+#!/bin/bash
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/snap/bin
+RIP=$3
+CHECK_STRING="HTTP/1.0 200 OK"
+
+# Run curl with appropriate options
+/usr/bin/curl --cacert {{ wrk_dir }}/ca.pem -I -XGET https://${RIP}:8008/replica 2>/dev/null | /usr/bin/grep -q "${CHECK_STRING}"
+exit $?

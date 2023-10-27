@@ -1,0 +1,39 @@
+---
+- name: getting and setting some facts for etcd
+  set_fact:
+    registry_hostnames: "{{ groups['etcd-servers'] | map('extract', hostvars) | map(attribute='ansible_hostname') | list }}" 
+- name: getting registry_ips facts for etcd
+  set_fact:
+    registry_ips: "{{ groups['etcd-servers'] | list }}"
+- name: combining ips and hostnames etcd
+  set_fact:
+    resList: "{{ registry_hostnames | zip(registry_ips) | list }}"
+- name: generating var for etcd cluster section on etc config
+  set_fact:
+    etcdCluster: "{% for item in resList %}{{ item.0 }}=https://{{ item.1 }}:2380{% if not loop.last %},{% endif %}{% endfor %}"
+- name: generating var for etcd peering option on etcd config
+  set_fact:
+    etcdPeering: "{% for item in registry_ips %}https://{{ item }}:2379{% if not loop.last %},{% endif %}{% endfor %}"
+
+- name: Installing ETCD
+  apt:
+    update_cache: yes
+    pkg: etcd
+    state: present
+
+- name: configuring SSL for etcd
+  include: tasks/sslconfigure.yml
+
+- name: configuring etcd
+  template: 
+    src: templates/etcd.j2
+    dest: /etc/default/etcd
+    mode: 0600
+    owner: etcd
+    group: etcd
+- name: systemctl daemon-reload / start etcd
+  systemd:
+    daemon_reload: yes
+    name: etcd
+    state: restarted
+    enabled: yes

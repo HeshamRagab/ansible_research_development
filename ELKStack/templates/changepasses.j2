@@ -1,0 +1,5 @@
+#!/bin/bash
+set -e
+
+printf "y\n{{ elasticpassword }}\n{{ elasticpassword }}\n" | /usr/share/elasticsearch/bin/elasticsearch-reset-password -u elastic -i
+printf "y\n{{ kibanapassword }}\n{{ kibanapassword }}\n" | /usr/share/elasticsearch/bin/elasticsearch-reset-password -u kibana_system -i

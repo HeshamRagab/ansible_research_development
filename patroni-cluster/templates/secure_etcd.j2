@@ -1,0 +1,6 @@
+#!/bin/bash
+
+etcdctl --endpoints=https://{{ ansible_host }}:2379 --ca-file={{ wrk_dir }}/ca.pem user add {{ etcdUser }}:{{ etcdPassword }} 2> /dev/null
+etcdctl --endpoints=https://{{ ansible_host }}:2379 --ca-file={{ wrk_dir }}/ca.pem auth enable 2> /dev/null
+etcdctl --endpoints=https://{{ ansible_host }}:2379 --ca-file={{ wrk_dir }}/ca.pem -u {{ etcdUser }}:{{ etcdPassword }} role remove guest  2> /dev/null
+exit 0

@@ -1,0 +1,21 @@
+- name: copy template to server
+  template:
+    src: templates/ClusterJoiner.j2
+    dest: /ClusterJoiner.sh
+    owner: root
+    group: root
+    mode: 0700
+- name: systemctl stop/enable rabbitmq-server
+  systemd:
+    daemon_reload: yes
+    name: rabbitmq-server
+    state: stopped
+    enabled: yes
+    masked: no
+
+- name: reset to make config file works
+  command: "/ClusterJoiner.sh"
+- name: deleting restarting script
+  file:
+    path: /ClusterJoiner.sh
+    state: absent

@@ -1,0 +1,94 @@
+- name: set fact wrk_dir for ssl generating proc
+  set_fact:
+    wrk_dir: "{{ kongpath }}"
+- name: set fact wrk_user for ssl generating proc
+  set_fact:
+    wrk_user: kong
+- name: set fact wrk_group for ssl generating proc
+  set_fact:
+    wrk_group: kong
+
+- name: configuring SSL for kong
+  include: tasks/sslconfigure.yml
+- name: adding repo / installing of kong
+  block:
+    - name: Installing apt-transport-https
+      apt:
+        pkg: apt-transport-https
+        update_cache: yes
+        state: present
+    - shell: "lsb_release -sc"
+      register: env_release
+    - set_fact:
+       env_release: "{{ env_release.stdout }}" 
+    - name: kong apt source
+      ansible.builtin.apt_repository:
+        repo: "deb [trusted=yes] https://download.konghq.com/gateway-3.x-ubuntu-{{ env_release }}/ default all"
+        state: present
+    - name: Installing kong
+      apt:
+        pkg: kong
+        update_cache: yes
+        state: present
+    - name: creating config folder kong.conf
+      file:
+        path: /etc/kong/kong.conf
+        state: touch
+        owner: kong
+        group: kong
+        mode: 0660
+    - name: add needed configuration to kong.conf
+      block:
+        - name: set database type to postgres
+          ansible.builtin.lineinfile:
+            path: /etc/kong/kong.conf
+            line: "database = postgres"
+            state: present
+
+        - name: set pg_host
+          ansible.builtin.lineinfile:
+            path: /etc/kong/kong.conf
+            line: "pg_host = {{ dbhost }}"
+            state: present
+
+        - name: set pg_port
+          ansible.builtin.lineinfile:
+            path: /etc/kong/kong.conf
+            line: "pg_port = 5000"
+            state: present
+
+        - name: set pg_user
+          ansible.builtin.lineinfile:
+            path: /etc/kong/kong.conf
+            line: "pg_user = kong"
+            state: present
+
+        - name: set pg_password
+          ansible.builtin.lineinfile:
+            path: /etc/kong/kong.conf
+            line: "pg_password = {{ kongpassword }}"
+            state: present
+
+        - name: set admin_listen
+          ansible.builtin.lineinfile:
+            path: /etc/kong/kong.conf
+            line: "admin_listen = 0.0.0.0:8003 http2 ssl"
+            state: present
+
+        - name: set headers
+          ansible.builtin.lineinfile:
+            path: /etc/kong/kong.conf
+            line: "headers = off"
+            state: present
+
+        - name: set ssl_cert
+          ansible.builtin.lineinfile:
+            path: /etc/kong/kong.conf
+            line: "ssl_cert = {{ kongpath }}/cert.pem"
+            state: present
+
+        - name: set ssl_cert_key
+          ansible.builtin.lineinfile:
+            path: /etc/kong/kong.conf
+            line: "ssl_cert_key = {{ kongpath }}/cert-key.pem"
+            state: present
